@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_sync_service.dart';
+import '../services/firebase_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/formatters.dart';
 
@@ -18,15 +21,20 @@ class GoogleSyncDialog extends StatefulWidget {
 }
 
 class _GoogleSyncDialogState extends State<GoogleSyncDialog> {
+  bool _isFirebaseUploading = false;
+  String? _firebaseUploadProgress;
+
   @override
   void initState() {
     super.initState();
     authSyncService.addListener(_onAuthChange);
+    firebaseService.addListener(_onAuthChange);
   }
 
   @override
   void dispose() {
     authSyncService.removeListener(_onAuthChange);
+    firebaseService.removeListener(_onAuthChange);
     super.dispose();
   }
 
@@ -47,7 +55,7 @@ class _GoogleSyncDialogState extends State<GoogleSyncDialog> {
       backgroundColor: getColor(context, 'lightDarkAccent'),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -124,6 +132,161 @@ class _GoogleSyncDialogState extends State<GoogleSyncDialog> {
                     ],
                   ),
                 ),
+                if (lastError.contains('SHA-1') || lastError.contains('10')) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF57C00).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFF57C00).withValues(alpha: 0.4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.vpn_key_rounded, size: 16, color: Color(0xFFE65100)),
+                            SizedBox(width: 6),
+                            Text(
+                              'Mã SHA-1 của máy bạn (bắt buộc cho Firebase):',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFE65100),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const SelectableText(
+                            'C8:7A:A5:3B:00:94:3A:81:7A:EF:0E:28:D9:04:D2:7D:DC:3F:D6:4A',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF263238),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                  visualDensity: VisualDensity.compact,
+                                  side: const BorderSide(color: Color(0xFFF57C00)),
+                                ),
+                                icon: const Icon(Icons.copy_rounded, size: 14, color: Color(0xFFE65100)),
+                                label: const Text(
+                                  'Sao chép SHA-1',
+                                  style: TextStyle(fontSize: 11.5, color: Color(0xFFE65100), fontWeight: FontWeight.w700),
+                                ),
+                                onPressed: () {
+                                  Clipboard.setData(const ClipboardData(
+                                    text: 'C8:7A:A5:3B:00:94:3A:81:7A:EF:0E:28:D9:04:D2:7D:DC:3F:D6:4A',
+                                  ));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Đã sao chép mã SHA-1 vào bộ nhớ tạm!'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: FilledButton.tonal(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                  visualDensity: VisualDensity.compact,
+                                  backgroundColor: const Color(0xFF3F51B5).withValues(alpha: 0.15),
+                                ),
+                                onPressed: () {
+                                  authSyncService.signInDemo();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Đã đăng nhập tài khoản Demo thành công!'),
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  'Dùng thử Demo',
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF3F51B5)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (lastError.contains('Google Drive API') || lastError.contains('403')) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1976D2).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF1976D2).withValues(alpha: 0.4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.cloud_sync_rounded, size: 16, color: Color(0xFF1976D2)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Kích hoạt Google Drive API (Chỉ 1 Click):',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0D47A1),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Dự án Google Cloud của nhóm chưa bật Drive API. Bạn có thể bấm nút bên dưới để bật (miễn phí), hoặc sử dụng nút "Sao lưu tài liệu lên Firebase Storage" (không cần Google Drive):',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF37474F)),
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: const Color(0xFF1976D2),
+                          ),
+                          icon: const Icon(Icons.open_in_new_rounded, size: 14),
+                          label: const Text(
+                            'Bật Google Drive API trên Google Cloud',
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                          ),
+                          onPressed: () {
+                            launchUrl(
+                              Uri.parse('https://console.cloud.google.com/apis/library/drive.googleapis.com?project=studyhubmob'),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
 
               if (!isLoggedIn) ...[
@@ -197,27 +360,31 @@ class _GoogleSyncDialogState extends State<GoogleSyncDialog> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              child: const Icon(
-                                Icons.g_mobiledata_rounded,
-                                color: Color(0xFF4285F4),
-                                size: 28,
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(2),
+                                child: const Icon(
+                                  Icons.g_mobiledata_rounded,
+                                  color: Color(0xFF4285F4),
+                                  size: 28,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Đăng nhập bằng Google',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF3C4043),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Đăng nhập bằng Google',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF3C4043),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                 ),
               ] else ...[
@@ -332,11 +499,92 @@ class _GoogleSyncDialogState extends State<GoogleSyncDialog> {
                           ),
                         )
                       : const Icon(Icons.sync_rounded),
-                  label: Text(
-                    isSyncing ? 'Đang đồng bộ Google Drive...' : 'Đồng bộ Google Drive ngay',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      isSyncing ? 'Đang đồng bộ Google Drive...' : 'Đồng bộ Google Drive ngay',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Firebase Cloud Storage Upload Button
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFF57C00), // Firebase Orange
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: (_isFirebaseUploading || isSyncing)
+                      ? null
+                      : () async {
+                          setState(() {
+                            _isFirebaseUploading = true;
+                            _firebaseUploadProgress = 'Đang sao lưu tệp lên Firebase...';
+                          });
+                          final count = await firebaseService.backupAllLocalDocumentsToFirebase(
+                            onProgress: (cur, tot) {
+                              setState(() {
+                                _firebaseUploadProgress = 'Đang tải: $cur/$tot tệp...';
+                              });
+                            },
+                          );
+                          setState(() {
+                            _isFirebaseUploading = false;
+                            _firebaseUploadProgress = null;
+                          });
+                          if (context.mounted) {
+                            if (count > 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFF2E7D32),
+                                  content: Text('Đã sao lưu thành công $count tài liệu lên Firebase Storage!'),
+                                ),
+                              );
+                            } else {
+                              final errorMsg = firebaseService.lastError ??
+                                  'Không tìm thấy dữ liệu tệp hoặc bị chặn quyền truy cập.';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFFC62828),
+                                  duration: const Duration(seconds: 6),
+                                  content: Text('Sao lưu thất bại (0 tài liệu): $errorMsg'),
+                                  action: SnackBarAction(
+                                    label: 'Đóng',
+                                    textColor: Colors.white,
+                                    onPressed: () {},
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  icon: _isFirebaseUploading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.cloud_upload_rounded),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      _isFirebaseUploading
+                          ? (_firebaseUploadProgress ?? 'Đang tải lên Firebase...')
+                          : 'Sao lưu tài liệu lên Firebase Storage',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),

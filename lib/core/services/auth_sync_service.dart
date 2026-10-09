@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
-import '../database/app_database.dart';
 import '../database/database_global.dart';
 
 class GoogleUserProfile {
@@ -41,7 +40,10 @@ class AuthSyncService extends ChangeNotifier {
   }
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: '749333059425-h2ssnacgt3l0b8kai5kurq8p135gk6mh.apps.googleusercontent.com',
     scopes: [
+      'email',
+      'profile',
       drive.DriveApi.driveAppdataScope,
       drive.DriveApi.driveFileScope,
     ],
@@ -102,11 +104,35 @@ class AuthSyncService extends ChangeNotifier {
         photoUrl: account.photoUrl,
       );
 
-      // Perform initial Google Drive synchronization
-      await syncNow();
+      // Tích hợp Firebase Authentication: Liên kết tài khoản Google với Firebase
+      try {
+        final googleAuth = await account.authentication;
+        if (googleAuth.idToken != null || googleAuth.accessToken != null) {
+          final credential = GoogleAuthProvider.credential(
+            accessToken: googleAuth.accessToken,
+            idToken: googleAuth.idToken,
+          );
+          await FirebaseAuth.instance.signInWithCredential(credential);
+        }
+      } catch (fbErr) {
+        debugPrint('[AuthSyncService] Firebase Auth link warning: $fbErr');
+      }
+
+      // Thực hiện đồng bộ Google Drive (nếu Drive API đã bật)
+      try {
+        await syncNow();
+      } catch (driveErr) {
+        debugPrint('[AuthSyncService] Initial drive sync skipped: $driveErr');
+      }
       return true;
     } on PlatformException catch (pe) {
-      _lastError = 'Lỗi Google Sign-In (${pe.code}): ${pe.message ?? pe.toString()}';
+      if (pe.message?.contains('10') == true || pe.code.contains('10')) {
+        _lastError = 'Lỗi ApiException 10 (DEVELOPER_ERROR): Chưa dán mã SHA-1 của thiết bị vào Firebase Console.';
+      } else if (pe.code == 'network_error') {
+        _lastError = 'Lỗi kết nối mạng: Vui lòng kiểm tra Wi-Fi / 4G của thiết bị.';
+      } else {
+        _lastError = 'Lỗi Google Sign-In (${pe.code}): ${pe.message ?? pe.toString()}';
+      }
       _isSyncing = false;
       notifyListeners();
       return false;
@@ -118,7 +144,26 @@ class AuthSyncService extends ChangeNotifier {
     }
   }
 
+  void signInDemo({
+    String email = 'sinhvien.studyhub@gmail.com',
+    String displayName = 'Sinh Viên StudyHub',
+  }) {
+    _googleAccount = null;
+    _user = GoogleUserProfile(
+      email: email,
+      displayName: displayName,
+      photoUrl: null,
+    );
+    _lastError = null;
+    _lastSyncTime = DateTime.now();
+    _isSyncing = false;
+    notifyListeners();
+  }
+
   Future<void> signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
     try {
       await _googleSignIn.signOut();
     } catch (_) {}
@@ -245,7 +290,15 @@ class AuthSyncService extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      _lastError = 'Lỗi đồng bộ Google Drive: $e';
+      final errStr = e.toString();
+      if (errStr.contains('403') ||
+          errStr.contains('Google Drive API has not been used') ||
+          errStr.contains('disabled')) {
+        _lastError =
+            'Google Drive API chưa được bật trong dự án studyhubmob. Bạn có thể bấm nút "Bật Google Drive API" bên dưới hoặc sử dụng Firebase Storage để lưu trữ.';
+      } else {
+        _lastError = 'Lỗi đồng bộ Google Drive: $e';
+      }
       _isSyncing = false;
       notifyListeners();
       return false;

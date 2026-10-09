@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/database/database_global.dart';
 import 'core/database/platform/shared.dart';
+import 'core/services/firebase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/presentation/home_screen.dart';
 
@@ -12,6 +13,13 @@ void main() async {
 
   // Seed sample subjects and documents on first launch
   await database.seedInitialDataIfEmpty();
+
+  // Khởi tạo Firebase Service (Authentication & Cloud Storage)
+  try {
+    await FirebaseService().initialize();
+  } catch (e) {
+    debugPrint('Firebase init fallback: $e');
+  }
 
   runApp(const StudyHubApp());
 }

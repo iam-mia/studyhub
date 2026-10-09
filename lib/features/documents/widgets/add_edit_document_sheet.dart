@@ -147,7 +147,7 @@ class _AddEditDocumentSheetState extends State<AddEditDocumentSheet> {
       final companion = DocumentsCompanion(
         documentPk: widget.document != null
             ? drift.Value(widget.document!.documentPk)
-            : drift.Value(const drift.Value.absent().toString()),
+            : const drift.Value.absent(),
         name: drift.Value(_nameController.text.trim()),
         subjectFk: drift.Value(_selectedSubjectPk!),
         type: drift.Value(finalType),
