@@ -524,9 +524,32 @@ class _GoogleSyncDialogState extends State<GoogleSyncDialog> {
                   onPressed: (_isFirebaseUploading || isSyncing)
                       ? null
                       : () async {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Đang thực hiện sao lưu...'),
+                                  ],
+                                ),
+                                duration: Duration(seconds: 2),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
                           setState(() {
                             _isFirebaseUploading = true;
-                            _firebaseUploadProgress = 'Đang sao lưu tệp lên Firebase...';
+                            _firebaseUploadProgress = 'Đang thực hiện sao lưu...';
                           });
                           final count = await firebaseService.backupAllLocalDocumentsToFirebase(
                             onProgress: (cur, tot) {
@@ -539,30 +562,15 @@ class _GoogleSyncDialogState extends State<GoogleSyncDialog> {
                             _isFirebaseUploading = false;
                             _firebaseUploadProgress = null;
                           });
-                          if (context.mounted) {
-                            if (count > 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: const Color(0xFF2E7D32),
-                                  content: Text('Đã sao lưu thành công $count tài liệu lên Firebase Storage!'),
-                                ),
-                              );
-                            } else {
-                              final errorMsg = firebaseService.lastError ??
-                                  'Không tìm thấy dữ liệu tệp hoặc bị chặn quyền truy cập.';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: const Color(0xFFC62828),
-                                  duration: const Duration(seconds: 6),
-                                  content: Text('Sao lưu thất bại (0 tài liệu): $errorMsg'),
-                                  action: SnackBarAction(
-                                    label: 'Đóng',
-                                    textColor: Colors.white,
-                                    onPressed: () {},
-                                  ),
-                                ),
-                              );
-                            }
+                          if (context.mounted && count > 0) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: const Color(0xFF2E7D32),
+                                content: Text('Đã sao lưu thành công $count tài liệu lên Firebase Storage!'),
+                                duration: const Duration(seconds: 3),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
                           }
                         },
                   icon: _isFirebaseUploading
