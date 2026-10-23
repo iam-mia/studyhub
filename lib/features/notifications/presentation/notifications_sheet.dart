@@ -65,6 +65,11 @@ class _NotificationBellButtonState extends State<NotificationBellButton> {
   }
 }
 
+// ============================================================================
+// HỆ THỐNG THÔNG BÁO THỜI GIAN THỰC (NOTIFICATION SHEET)
+// - Hiển thị cập nhật trạng thái mượn tài liệu, phê duyệt và thông báo hệ thống
+// - Hỗ trợ đánh dấu đã đọc và xóa thông báo đã xử lý
+// ============================================================================
 /// Giao diện danh sách thông báo
 class NotificationsSheet extends StatelessWidget {
   final Function(int targetTab, int? subTab)? onNavigateToTab;
@@ -194,10 +199,19 @@ class NotificationsSheet extends StatelessWidget {
                                       size: 56, color: Colors.grey.withValues(alpha: 0.4)),
                                   const SizedBox(height: 10),
                                   const Text(
-                                    'Chưa có thông báo nào',
-                                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                                    'Hiện chưa có thông báo mới',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                   const SizedBox(height: 6),
+                                  Text(
+                                    'Các thông báo mượn tài liệu sẽ xuất hiện ở đây',
+                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 4),
                                   Text(
                                     'Kéo xuống để cập nhật thông báo mới nhất',
                                     style: TextStyle(color: Colors.grey.shade400, fontSize: 11),
